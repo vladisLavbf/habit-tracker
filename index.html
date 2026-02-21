@@ -40,48 +40,83 @@
 <button onclick="addHabit()">Добавить привычку</button>
 
 <script>
-  const tg = window.Telegram.WebApp;
-  tg.expand();
-
-  const user = tg.initDataUnsafe.user;
-
-  let habits = JSON.parse(localStorage.getItem("habits")) || [];
-
-  function render() {
-    const container = document.getElementById("habits");
-    container.innerHTML = "";
-
-    habits.forEach((habit, index) => {
-      const div = document.createElement("div");
-      div.className = "habit";
-      div.innerHTML = `
-        <strong>${habit.title}</strong><br>
-        Выполнено: ${habit.done ? "✅" : "❌"}
-        <button onclick="toggleHabit(${index})">
-          Отметить
-        </button>
-      `;
-      container.appendChild(div);
-    });
-  }
-
-  function addHabit() {
-    const title = prompt("Название привычки:");
-    if (!title) return;
-
-    habits.push({ title, done: false });
-    localStorage.setItem("habits", JSON.stringify(habits));
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    
+    let habits = JSON.parse(localStorage.getItem("habits")) || [];
+    
+    function today() {
+      return new Date().toISOString().split("T")[0];
+    }
+    
+    function save() {
+      localStorage.setItem("habits", JSON.stringify(habits));
+    }
+    
+    function render() {
+      const container = document.getElementById("habits");
+      container.innerHTML = "";
+    
+      habits.forEach((habit, index) => {
+        const isDoneToday = habit.dates.includes(today());
+        const streak = calculateStreak(habit);
+    
+        const div = document.createElement("div");
+        div.className = "habit";
+        div.innerHTML = `
+          <strong>${habit.title}</strong><br>
+          Сегодня: ${isDoneToday ? "✅" : "❌"}<br>
+          🔥 Стрик: ${streak} дней
+          <button onclick="toggleHabit(${index})">
+            ${isDoneToday ? "Убрать отметку" : "Отметить сегодня"}
+          </button>
+        `;
+        container.appendChild(div);
+      });
+    }
+    
+    function addHabit() {
+      const title = prompt("Название привычки:");
+      if (!title) return;
+    
+      habits.push({ title, dates: [] });
+      save();
+      render();
+    }
+    
+    function toggleHabit(index) {
+      const date = today();
+      const dates = habits[index].dates;
+    
+      if (dates.includes(date)) {
+        habits[index].dates = dates.filter(d => d !== date);
+      } else {
+        dates.push(date);
+      }
+    
+      save();
+      render();
+    }
+    
+    function calculateStreak(habit) {
+      let streak = 0;
+      let currentDate = new Date();
+    
+      while (true) {
+        const dateStr = currentDate.toISOString().split("T")[0];
+        if (habit.dates.includes(dateStr)) {
+          streak++;
+          currentDate.setDate(currentDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+    
+      return streak;
+    }
+    
     render();
-  }
-
-  function toggleHabit(index) {
-    habits[index].done = !habits[index].done;
-    localStorage.setItem("habits", JSON.stringify(habits));
-    render();
-  }
-
-  render();
-</script>
+    </script>
 
 </body>
 </html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Habit Tracker</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: var(--tg-theme-bg-color);
+      color: var(--tg-theme-text-color);
+    }
+
+    button {
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+      border-radius: 8px;
+      border: none;
+      background: #2AABEE;
+      color: white;
+      font-size: 16px;
+    }
+
+    .habit {
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.05);
+    }
+  </style>
+</head>
+<body>
+
+<h2>Мои привычки</h2>
+
+<div id="habits"></div>
+
+<button onclick="addHabit()">Добавить привычку</button>
+
+<script>
+  const tg = window.Telegram.WebApp;
+  tg.expand();
+
+  const user = tg.initDataUnsafe.user;
+
+  let habits = JSON.parse(localStorage.getItem("habits")) || [];
+
+  function render() {
+    const container = document.getElementById("habits");
+    container.innerHTML = "";
+
+    habits.forEach((habit, index) => {
+      const div = document.createElement("div");
+      div.className = "habit";
+      div.innerHTML = `
+        <strong>${habit.title}</strong><br>
+        Выполнено: ${habit.done ? "✅" : "❌"}
+        <button onclick="toggleHabit(${index})">
+          Отметить
+        </button>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function addHabit() {
+    const title = prompt("Название привычки:");
+    if (!title) return;
+
+    habits.push({ title, done: false });
+    localStorage.setItem("habits", JSON.stringify(habits));
+    render();
+  }
+
+  function toggleHabit(index) {
+    habits[index].done = !habits[index].done;
+    localStorage.setItem("habits", JSON.stringify(habits));
+    render();
+  }
+
+  render();
+</script>
+
+</body>
+</html>

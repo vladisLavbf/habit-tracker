@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>ETP Mini App</title>
+<title>ETP for Champs</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -15,15 +15,6 @@ body{
     padding:20px;
 }
 
-.habit{
-    display:flex;
-    justify-content:space-between;
-    padding:12px;
-    background:#1a1a1a;
-    border-radius:10px;
-    margin-bottom:8px;
-}
-
 button{
     width:100%;
     padding:12px;
@@ -33,6 +24,15 @@ button{
     font-weight:bold;
     background:#ff0033;
     color:white;
+}
+
+.habit{
+    display:flex;
+    justify-content:space-between;
+    padding:12px;
+    background:#1a1a1a;
+    border-radius:10px;
+    margin-bottom:8px;
 }
 
 .card{
@@ -93,12 +93,8 @@ const supabase = window.supabase.createClient(
 
 let today = new Date().toISOString().split("T")[0];
 
-let data = {
-    habits: [],
-    completions: {},
-    current_streak: 0,
-    max_streak: 0
-};
+let habits = [];
+let completions = {};
 
 async function initUser(){
 
@@ -107,20 +103,19 @@ async function initUser(){
     document.getElementById("greeting").innerHTML =
         "Привет, " + (user.first_name || "Чемпион");
 
-    let {data: dbUser} = await supabase
-        .from("usersforminiapp")
+    let {data} = await supabase
+        .from("usersforapp")
         .select("*")
         .eq("telegram_id", user.id)
         .single();
 
-    if(!dbUser){
+    if(!data){
 
-        await supabase.from("usersforminiapp").insert([
+        await supabase.from("usersforapp").insert([
             {
                 telegram_id:user.id,
                 username:user.username || "",
                 first_name:user.first_name || "",
-                photo_url:user.photo_url || "",
                 current_streak:0,
                 max_streak:0,
                 created_at:new Date().toISOString()
@@ -131,10 +126,9 @@ async function initUser(){
     loadHabits();
 }
 
-async function loadHabits(){
+function loadHabits(){
 
-    // MVP: привычки пока локальные
-    data.habits = [
+    habits = [
         {id:1,title:"⚡ Получение заряда"},
         {id:2,title:"📚 Изучение нового"},
         {id:3,title:"🏋 Тренировка"},
@@ -150,14 +144,19 @@ function render(){
     const list = document.getElementById("habitList");
     list.innerHTML = "";
 
-    data.habits.forEach(habit => {
+    habits.forEach(habit => {
+
+        const checked =
+            completions[today]?.includes(habit.id) || false;
 
         const div = document.createElement("div");
         div.className = "habit";
 
         div.innerHTML = `
         <span>${habit.title}</span>
-        <input type="checkbox" onchange="toggleHabit(${habit.id})"/>
+        <input type="checkbox"
+        ${checked ? "checked" : ""}
+        onchange="toggleHabit(${habit.id})"/>
         `;
 
         list.appendChild(div);
@@ -168,15 +167,26 @@ function render(){
 
 function toggleHabit(id){
 
-    console.log("toggle habit", id);
+    if(!completions[today])
+        completions[today] = [];
+
+    if(completions[today].includes(id)){
+        completions[today] =
+            completions[today].filter(x=>x!==id);
+    }
+    else{
+        completions[today].push(id);
+    }
+
+    updateStats();
 }
 
 function addHabit(){
 
-    const title = prompt("Название привычки");
+    let title = prompt("Название привычки");
     if(!title) return;
 
-    data.habits.push({
+    habits.push({
         id:Date.now(),
         title:"🔥 "+title
     });
@@ -185,15 +195,30 @@ function addHabit(){
 }
 
 function finishDay(){
-    alert("Функция завершения дня пока в разработке");
+
+    let doneCount = completions[today]?.length || 0;
+
+    if(doneCount===0){
+        if(!confirm("Ты точно ничего не сделал сегодня?"))
+            return;
+    }
+
+    alert("День зафиксирован!");
 }
 
 function updateStats(){
 
-    document.getElementById("streak").innerHTML =
-        "🔥 Стрик: 0 | 🏆 Макс: 0";
+    let streak = 0;
 
-    document.getElementById("progressFill").style.width = "0%";
+    if(completions[today]?.length > 0){
+        streak = 1;
+    }
+
+    document.getElementById("streak").innerHTML =
+        "🔥 Стрик: "+streak;
+
+    document.getElementById("progressFill").style.width =
+        ((completions[today]?.length || 0)/habits.length*100)+"%";
 }
 
 initUser();

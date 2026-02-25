@@ -89,8 +89,6 @@ const supabase = window.supabase.createClient(
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const user = tg.initDataUnsafe.user;
-
 async function initUser() {
   if (!user) return;
 
@@ -120,7 +118,7 @@ async function initUser() {
 }
 initUser();
 
-const user = tg.initDataUnsafe.user;
+let user = tg.initDataUnsafe.user;
 document.getElementById("greeting").innerHTML =
   "Привет, " + (user?.first_name || "Чемпион");
 
@@ -153,18 +151,21 @@ function render() {
   const list = document.getElementById("habitList");
   list.innerHTML = "";
 
-  const todayCompletions = data.completions[today] || [];
-
   data.habits.forEach(habit => {
-    const checked = todayCompletions.includes(habit.id);
+
+    const dates = habit.dates || [];
+    const checked = dates.includes(today());
+
     const div = document.createElement("div");
     div.className = "habit";
+
     div.innerHTML = `
       <span>${habit.title}</span>
-      <input type="checkbox" ${checked ? "checked" : ""}
-        ${data.closedDays.includes(today) ? "disabled" : ""}
+      <input type="checkbox"
+        ${checked ? "checked" : ""}
         onchange="toggleHabit(${habit.id})"/>
     `;
+
     list.appendChild(div);
   });
 

@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8" />
 <title>ETP for Champs</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -78,8 +79,46 @@ button {
 <button class="gray" onclick="finishDay()">✅ Завершить день</button>
 
 <script>
+const SUPABASE_URL = "https://edykbfwlafexxvlqwpcm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkeWtiZndsYWZleHh2bHF3cGNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODA0MDIsImV4cCI6MjA4Njg1NjQwMn0.MN05XvJQrcCQCIcJxOqAZDHWu3qLoCLGKcyjE4ZMGas";
+
+const supabase = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 const tg = window.Telegram.WebApp;
 tg.expand();
+
+const user = tg.initDataUnsafe.user;
+
+async function initUser() {
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from("usersforapp")
+    .select("*")
+    .eq("telegram_id", user.id)
+    .single();
+
+  if (!data) {
+    const { error: insertError } = await supabase
+      .from("usersforapp")
+      .insert([
+        {
+          telegram_id: user.id,
+          username: user.username || "",
+          first_name: user.first_name || "",
+          photo_url: user.photo_url || "",
+          current_streak: 0,
+          max_streak: 0,
+          created_at: new Date().toISOString()
+        }
+      ]);
+
+    if (insertError) console.error(insertError);
+  }
+}
+initUser();
 
 const user = tg.initDataUnsafe.user;
 document.getElementById("greeting").innerHTML =

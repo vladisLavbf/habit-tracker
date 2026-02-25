@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>ETP for Champs</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0f0f0f;
+  color: white;
+  padding: 20px;
+}
+
+h1 { margin-top: 0; }
+
+.card {
+  background: #1a1a1a;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+button {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-weight: bold;
+  margin-top: 5px;
+  width: 100%;
+}
+
+.primary { background: #ff0033; color: white; }
+.gray { background: #333; color: white; }
+
+.habit {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #1a1a1a;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #333;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #ff0033;
+  width: 0%;
+}
+</style>
+</head>
+<body>
+
+<h1>🔥 ETP for Champs</h1>
+
+<div class="card">
+  <div id="greeting"></div>
+  <div id="streak"></div>
+  <div class="progress-bar">
+    <div id="progressFill" class="progress-fill"></div>
+  </div>
+</div>
+
+<div id="habitList"></div>
+
+<button class="primary" onclick="addHabit()">➕ Добавить привычку</button>
+<button class="gray" onclick="finishDay()">✅ Завершить день</button>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+const user = tg.initDataUnsafe.user;
+document.getElementById("greeting").innerHTML =
+  "Привет, " + (user?.first_name || "Чемпион");
+
+let data = JSON.parse(localStorage.getItem("etpData")) || {
+  habits: [],
+  completions: {},
+  closedDays: [],
+  currentStreak: 0,
+  maxStreak: 0
+};
+
+const today = new Date().toISOString().split("T")[0];
+
+if (data.habits.length === 0) {
+  data.habits = [
+    { id: 1, title: "⚡ Получение заряда" },
+    { id: 2, title: "📚 Изучение нового" },
+    { id: 3, title: "🏋 Тренировка" },
+    { id: 4, title: "💼 Работа" },
+    { id: 5, title: "🧘 Растяжка" }
+  ];
+  save();
+}
+
+function save() {
+  localStorage.setItem("etpData", JSON.stringify(data));
+}
+
+function render() {
+  const list = document.getElementById("habitList");
+  list.innerHTML = "";
+
+  const todayCompletions = data.completions[today] || [];
+
+  data.habits.forEach(habit => {
+    const checked = todayCompletions.includes(habit.id);
+    const div = document.createElement("div");
+    div.className = "habit";
+    div.innerHTML = `
+      <span>${habit.title}</span>
+      <input type="checkbox" ${checked ? "checked" : ""}
+        ${data.closedDays.includes(today) ? "disabled" : ""}
+        onchange="toggleHabit(${habit.id})"/>
+    `;
+    list.appendChild(div);
+  });
+
+  updateStats();
+}
+
+function toggleHabit(id) {
+  if (data.closedDays.includes(today)) return;
+
+  if (!data.completions[today])
+    data.completions[today] = [];
+
+  const index = data.completions[today].indexOf(id);
+
+  if (index > -1)
+    data.completions[today].splice(index, 1);
+  else
+    data.completions[today].push(id);
+
+  save();
+  render();
+}
+
+function addHabit() {
+  const title = prompt("Название привычки:");
+  if (!title) return;
+
+  const id = Date.now();
+  data.habits.push({ id, title: "🔥 " + title });
+  save();
+  render();
+}
+
+function finishDay() {
+  const todayCompletions = data.completions[today] || [];
+
+  if (todayCompletions.length === 0) {
+    if (!confirm("Ты точно ничего не сделал сегодня?"))
+      return;
+  }
+
+  data.closedDays.push(today);
+
+  if (todayCompletions.length > 0) {
+    data.currentStreak++;
+    if (data.currentStreak > data.maxStreak)
+      data.maxStreak = data.currentStreak;
+  } else {
+    data.currentStreak = 0;
+  }
+
+  save();
+  render();
+}
+
+function updateStats() {
+  const total = data.habits.length;
+  const done = (data.completions[today] || []).length;
+  const percent = total === 0 ? 0 : (done / total) * 100;
+
+  document.getElementById("progressFill").style.width =
+    percent + "%";
+
+  document.getElementById("streak").innerHTML =
+    "🔥 Стрик: " + data.currentStreak +
+    " | 🏆 Макс: " + data.maxStreak;
+}
+
+render();
+</script>
+
+</body>
+</html>

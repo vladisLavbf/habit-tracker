@@ -1,228 +1,199 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>ETP for Champs</title>
-
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <style>
-body{
-    background:#0f0f0f;
-    color:white;
-    font-family: Arial;
-    padding:20px;
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0f0f0f;
+  color: white;
+  padding: 20px;
 }
 
-button{
-    width:100%;
-    padding:12px;
-    margin-top:8px;
-    border:none;
-    border-radius:8px;
-    font-weight:bold;
-    background:#ff0033;
-    color:white;
+h1 { margin-top: 0; }
+
+.card {
+  background: #1a1a1a;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 10px;
 }
 
-.habit{
-    display:flex;
-    justify-content:space-between;
-    padding:12px;
-    background:#1a1a1a;
-    border-radius:10px;
-    margin-bottom:8px;
+button {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-weight: bold;
+  margin-top: 5px;
+  width: 100%;
 }
 
-.card{
-    background:#1a1a1a;
-    padding:15px;
-    border-radius:12px;
-    margin-bottom:15px;
+.primary { background: #ff0033; color: white; }
+.gray { background: #333; color: white; }
+
+.habit {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #1a1a1a;
+  border-radius: 10px;
+  margin-bottom: 8px;
 }
 
-.progress{
-    height:8px;
-    background:#333;
-    border-radius:5px;
-    overflow:hidden;
+.progress-bar {
+  height: 8px;
+  background: #333;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 5px;
 }
 
-.progress-fill{
-    height:100%;
-    width:0%;
-    background:#ff0033;
+.progress-fill {
+  height: 100%;
+  background: #ff0033;
+  width: 0%;
 }
 </style>
-
 </head>
-
 <body>
 
-<h2>🔥 ETP for Champs</h2>
+<h1>🔥 ETP for Champs</h1>
 
 <div class="card">
-<div id="greeting"></div>
-<div id="streak"></div>
-
-<div class="progress">
-<div id="progressFill" class="progress-fill"></div>
-</div>
+  <div id="greeting"></div>
+  <div id="streak"></div>
+  <div class="progress-bar">
+    <div id="progressFill" class="progress-fill"></div>
+  </div>
 </div>
 
 <div id="habitList"></div>
 
-<button onclick="addHabit()">➕ Добавить привычку</button>
-<button onclick="finishDay()">✅ Завершить день</button>
+<button class="primary" onclick="addHabit()">➕ Добавить привычку</button>
+<button class="gray" onclick="finishDay()">✅ Завершить день</button>
 
 <script>
-
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-let user = tg.initDataUnsafe?.user;
+const user = tg.initDataUnsafe.user;
+document.getElementById("greeting").innerHTML =
+  "Привет, " + (user?.first_name || "Чемпион");
 
-const SUPABASE_URL = "https://edykbfwlafexxvlqwpcm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkeWtiZndsYWZleHh2bHF3cGNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODA0MDIsImV4cCI6MjA4Njg1NjQwMn0.MN05XvJQrcCQCIcJxOqAZDHWu3qLoCLGKcyjE4ZMGas";
+let data = JSON.parse(localStorage.getItem("etpData")) || {
+  habits: [],
+  completions: {},
+  closedDays: [],
+  currentStreak: 0,
+  maxStreak: 0
+};
 
-const supabase = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
+const today = new Date().toISOString().split("T")[0];
 
-let today = new Date().toISOString().split("T")[0];
-
-let habits = [];
-let completions = {};
-
-async function initUser(){
-
-    if(!user) return;
-
-    document.getElementById("greeting").innerHTML =
-        "Привет, " + (user.first_name || "Чемпион");
-
-    let {data} = await supabase
-        .from("usersforapp")
-        .select("*")
-        .eq("telegram_id", user.id)
-        .single();
-
-    if(!data){
-
-        await supabase.from("usersforapp").insert([
-            {
-                telegram_id:user.id,
-                username:user.username || "",
-                first_name:user.first_name || "",
-                current_streak:0,
-                max_streak:0,
-                created_at:new Date().toISOString()
-            }
-        ]);
-    }
-
-    loadHabits();
+if (data.habits.length === 0) {
+  data.habits = [
+    { id: 1, title: "⚡ Получение заряда" },
+    { id: 2, title: "📚 Изучение нового" },
+    { id: 3, title: "🏋 Тренировка" },
+    { id: 4, title: "💼 Работа" },
+    { id: 5, title: "🧘 Растяжка" }
+  ];
+  save();
 }
 
-function loadHabits(){
-
-    habits = [
-        {id:1,title:"⚡ Получение заряда"},
-        {id:2,title:"📚 Изучение нового"},
-        {id:3,title:"🏋 Тренировка"},
-        {id:4,title:"💼 Работа"},
-        {id:5,title:"🧘 Растяжка"}
-    ];
-
-    render();
+function save() {
+  localStorage.setItem("etpData", JSON.stringify(data));
 }
 
-function render(){
+function render() {
+  const list = document.getElementById("habitList");
+  list.innerHTML = "";
 
-    const list = document.getElementById("habitList");
-    list.innerHTML = "";
+  const todayCompletions = data.completions[today] || [];
 
-    habits.forEach(habit => {
-
-        const checked =
-            completions[today]?.includes(habit.id) || false;
-
-        const div = document.createElement("div");
-        div.className = "habit";
-
-        div.innerHTML = `
-        <span>${habit.title}</span>
-        <input type="checkbox"
-        ${checked ? "checked" : ""}
+  data.habits.forEach(habit => {
+    const checked = todayCompletions.includes(habit.id);
+    const div = document.createElement("div");
+    div.className = "habit";
+    div.innerHTML = `
+      <span>${habit.title}</span>
+      <input type="checkbox" ${checked ? "checked" : ""}
+        ${data.closedDays.includes(today) ? "disabled" : ""}
         onchange="toggleHabit(${habit.id})"/>
-        `;
+    `;
+    list.appendChild(div);
+  });
 
-        list.appendChild(div);
-    });
-
-    updateStats();
+  updateStats();
 }
 
-function toggleHabit(id){
+function toggleHabit(id) {
+  if (data.closedDays.includes(today)) return;
 
-    if(!completions[today])
-        completions[today] = [];
+  if (!data.completions[today])
+    data.completions[today] = [];
 
-    if(completions[today].includes(id)){
-        completions[today] =
-            completions[today].filter(x=>x!==id);
-    }
-    else{
-        completions[today].push(id);
-    }
+  const index = data.completions[today].indexOf(id);
 
-    updateStats();
+  if (index > -1)
+    data.completions[today].splice(index, 1);
+  else
+    data.completions[today].push(id);
+
+  save();
+  render();
 }
 
-function addHabit(){
+function addHabit() {
+  const title = prompt("Название привычки:");
+  if (!title) return;
 
-    let title = prompt("Название привычки");
-    if(!title) return;
-
-    habits.push({
-        id:Date.now(),
-        title:"🔥 "+title
-    });
-
-    render();
+  const id = Date.now();
+  data.habits.push({ id, title: "🔥 " + title });
+  save();
+  render();
 }
 
-function finishDay(){
+function finishDay() {
+  const todayCompletions = data.completions[today] || [];
 
-    let doneCount = completions[today]?.length || 0;
+  if (todayCompletions.length === 0) {
+    if (!confirm("Ты точно ничего не сделал сегодня?"))
+      return;
+  }
 
-    if(doneCount===0){
-        if(!confirm("Ты точно ничего не сделал сегодня?"))
-            return;
-    }
+  data.closedDays.push(today);
 
-    alert("День зафиксирован!");
+  if (todayCompletions.length > 0) {
+    data.currentStreak++;
+    if (data.currentStreak > data.maxStreak)
+      data.maxStreak = data.currentStreak;
+  } else {
+    data.currentStreak = 0;
+  }
+
+  save();
+  render();
 }
 
-function updateStats(){
+function updateStats() {
+  const total = data.habits.length;
+  const done = (data.completions[today] || []).length;
+  const percent = total === 0 ? 0 : (done / total) * 100;
 
-    let streak = 0;
+  document.getElementById("progressFill").style.width =
+    percent + "%";
 
-    if(completions[today]?.length > 0){
-        streak = 1;
-    }
-
-    document.getElementById("streak").innerHTML =
-        "🔥 Стрик: "+streak;
-
-    document.getElementById("progressFill").style.width =
-        ((completions[today]?.length || 0)/habits.length*100)+"%";
+  document.getElementById("streak").innerHTML =
+    "🔥 Стрик: " + data.currentStreak +
+    " | 🏆 Макс: " + data.maxStreak;
 }
 
-initUser();
-
+render();
 </script>
 
 </body>
